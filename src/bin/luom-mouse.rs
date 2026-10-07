@@ -2,7 +2,7 @@
 
 use eframe::egui;
 use luomctl::device::{ButtonTable, Mouse};
-use luomctl::SLOT;
+use luomctl::*;
 use std::io::ErrorKind;
 
 /// Button names. The numbers are the same as in the official software.
@@ -21,19 +21,19 @@ const BUTTONS: [&str; 10] = [
 
 /// The actions a person can choose, in plain words.
 const CHOICES: &[(&str, [u8; 4])] = &[
-    ("Left click", [0x01, 0x00, 0xf0, 0x00]),
-    ("Right click", [0x01, 0x00, 0xf1, 0x00]),
-    ("Middle click", [0x01, 0x00, 0xf2, 0x00]),
-    ("Mouse 4 (back)", [0x01, 0x00, 0xf3, 0x00]),
-    ("Mouse 5 (forward)", [0x01, 0x00, 0xf4, 0x00]),
-    ("Scroll up", [0x01, 0x00, 0xf7, 0x00]),
-    ("Scroll down", [0x01, 0x00, 0xf8, 0x00]),
-    ("Change speed (DPI)", [0x07, 0x00, 0x03, 0x00]),
-    ("Lights on / off", [0x08, 0x00, 0x03, 0x00]),
+    ("Left click", LEFT),
+    ("Right click", RIGHT),
+    ("Middle click", MIDDLE),
+    ("Mouse 4 (back)", BACK),
+    ("Mouse 5 (forward)", FORWARD),
+    ("Scroll up", WHEEL_UP),
+    ("Scroll down", WHEEL_DOWN),
+    ("Change speed (DPI)", DPI_LOOP),
+    ("Lights on / off", RGB_TOGGLE),
     ("Show desktop (Win+D)", [0x00, 0x08, 0x07, 0x00]),
     ("Copy (Ctrl+C)", [0x00, 0x01, 0x06, 0x00]),
     ("Paste (Ctrl+V)", [0x00, 0x01, 0x19, 0x00]),
-    ("Do nothing", [0x00, 0x00, 0x00, 0x00]),
+    ("Do nothing", OFF),
 ];
 
 fn label(v: [u8; 4]) -> String {
@@ -103,7 +103,8 @@ impl App {
                 self.message = "Saved. The mouse keeps these settings, also on other computers.".into();
                 self.ok = true;
             }
-            Ok(_) => {
+            Ok(t) => {
+                self.saved = Some(t);
                 self.message = "The mouse did not keep the change. Click “Save to mouse” again.".into();
                 self.ok = false;
             }
@@ -126,20 +127,27 @@ impl eframe::App for App {
             ui.heading("Mouse buttons");
             ui.add_space(6.0);
 
+            let changed = self.saved.is_some_and(|saved| saved != self.edit);
             ui.horizontal(|ui| {
                 ui.label("Button set:");
                 let before = self.mode;
-                ui.selectable_value(&mut self.mode, Mode::A, "Set A");
-                ui.selectable_value(&mut self.mode, Mode::B, "Set B");
+                ui.add_enabled_ui(!changed, |ui| {
+                    ui.selectable_value(&mut self.mode, Mode::A, "Set A");
+                    ui.selectable_value(&mut self.mode, Mode::B, "Set B");
+                });
                 if self.mode != before {
                     self.load();
                 }
             })
             .response
-            .on_hover_text("The mouse can keep two sets. A button on the mouse changes between them.");
+            .on_hover_text(if changed {
+                "Save or undo your changes before you change the set."
+            } else {
+                "The mouse can keep two sets. A button on the mouse changes between them."
+            });
             ui.add_space(8.0);
 
-            if self.saved.is_some() {
+            if let Some(saved) = self.saved {
                 egui::Grid::new("buttons").num_columns(2).spacing([16.0, 8.0]).show(ui, |ui| {
                     for (i, name) in BUTTONS.iter().enumerate() {
                         ui.label(*name);
@@ -157,12 +165,11 @@ impl eframe::App for App {
                 });
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
-                    let changed = self.saved != Some(self.edit);
                     if ui.add_enabled(changed, egui::Button::new("Save to mouse")).clicked() {
                         self.save();
                     }
                     if ui.add_enabled(changed, egui::Button::new("Undo changes")).clicked() {
-                        self.edit = self.saved.unwrap();
+                        self.edit = saved;
                     }
                 });
             } else if ui.button("Try again").clicked() {
