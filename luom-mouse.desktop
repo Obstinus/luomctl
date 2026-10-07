@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Mouse buttons
+Comment=Change the buttons of the LUOM G10 mouse
+Exec=luom-mouse
+Icon=input-mouse
+Categories=Settings;HardwareSettings;

@@ -11,7 +11,19 @@ sudo install -m644 70-luom-g10.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-## Use
+## Window
+
+Start **Mouse buttons** from the app menu, or run `luom-mouse`.
+Choose an action for each button. Then click **Save to mouse**.
+
+Install for one user:
+
+```
+cargo install --path . --root ~/.local
+install -Dm644 luom-mouse.desktop ~/.local/share/applications/
+```
+
+## Command line
 
 ```
 luomctl show a                 # Mode A buttons
