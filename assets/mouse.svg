@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 830">
+  <defs>
+    <linearGradient id="pad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a3a40"/><stop offset="1" stop-color="#18181c"/>
+    </linearGradient>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4f4f6"/><stop offset=".5" stop-color="#9a9ca2"/><stop offset="1" stop-color="#d8d9dd"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34343a"/><stop offset="1" stop-color="#151518"/>
+    </linearGradient>
+    <linearGradient id="wheel" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#777"/><stop offset=".5" stop-color="#eee"/><stop offset="1" stop-color="#777"/>
+    </linearGradient>
+    <pattern id="spring" width="10" height="60" patternUnits="userSpaceOnUse">
+      <rect width="10" height="60" fill="#5a3a1a"/><rect width="5" height="60" fill="#c08850"/>
+    </pattern>
+    <radialGradient id="glow"><stop offset="0" stop-color="#5f5" stop-opacity=".9"/><stop offset="1" stop-color="#2c2" stop-opacity="0"/></radialGradient>
+  </defs>
+  <!-- cable -->
+  <rect x="270" y="0" width="20" height="130" fill="#222"/>
+  <!-- green core -->
+  <ellipse cx="280" cy="470" rx="120" ry="70" fill="url(#glow)"/>
+  <!-- springs -->
+  <rect x="140" y="440" width="110" height="60" fill="url(#spring)"/>
+  <rect x="310" y="440" width="110" height="60" fill="url(#spring)"/>
+  <!-- side skirt (thumb buttons) -->
+  <path d="M10 490 L120 480 L140 700 L110 790 L40 790 L10 740 Z" fill="url(#body)" stroke="#555" stroke-width="3"/>
+  <path d="M40 520 L105 515 L112 610 L45 615 Z" fill="#26262b" stroke="#666" stroke-width="2"/>
+  <path d="M45 630 L113 625 L120 730 L55 740 Z" fill="#26262b" stroke="#666" stroke-width="2"/>
+  <!-- silver frames -->
+  <path d="M70 165 L215 135 L245 160 L245 400 L175 450 L95 425 L65 390 Z" fill="url(#silver)"/>
+  <path d="M490 165 L345 135 L315 160 L315 400 L385 450 L465 425 L500 300 L495 220 Z" fill="url(#silver)"/>
+  <!-- left and right buttons -->
+  <path d="M90 175 L215 150 L230 175 L228 370 L165 420 L100 395 L88 220 Z" fill="url(#pad)"/>
+  <path d="M470 175 L345 150 L330 175 L332 370 L395 420 L460 395 L472 220 Z" fill="url(#pad)"/>
+  <!-- center spine and wheel -->
+  <path d="M225 120 L335 120 L340 300 L330 420 L280 460 L230 420 L220 300 Z" fill="url(#pad)" stroke="#555" stroke-width="2"/>
+  <path d="M235 380 L325 380 L320 430 L280 455 L240 430 Z" fill="url(#silver)"/>
+  <rect x="255" y="210" width="50" height="110" rx="22" fill="#111"/>
+  <rect x="262" y="218" width="36" height="94" rx="16" fill="url(#wheel)"/>
+  <rect x="274" y="218" width="12" height="94" fill="#222"/>
+  <!-- palm rest -->
+  <path d="M135 520 L280 485 L425 520 L445 690 L390 790 L280 830 L170 790 L120 690 Z" fill="url(#body)" stroke="#444" stroke-width="3"/>
+  <path d="M280 605 L305 625 L295 660 L280 670 L265 660 L255 625 Z" fill="#2f2" opacity=".85"/>
+</svg>

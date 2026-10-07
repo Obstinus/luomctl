@@ -176,47 +176,27 @@ impl eframe::App for App {
     }
 }
 
-/// Draw the mouse from above, with the button numbers at the same places as the official software.
+/// Picture of the mouse from above, with the button numbers at the same places as the official software.
 fn draw_mouse(ui: &mut egui::Ui) {
-    use egui::{pos2, Color32, Shape, Stroke};
-    let (rect, _) = ui.allocate_exact_size(egui::vec2(245.0, 300.0), egui::Sense::hover());
-    let p = |x: f32, y: f32| rect.min + egui::vec2(x, y);
-    let painter = ui.painter_at(rect);
-    let shell = Color32::from_rgb(35, 35, 40);
-    let edge = Stroke::new(2.0_f32, Color32::from_rgb(200, 160, 70));
-    let red = Color32::from_rgb(190, 30, 35);
-
-    let poly = |pts: &[(f32, f32)], fill: Color32| {
-        Shape::convex_polygon(pts.iter().map(|&(x, y)| p(x, y)).collect(), fill, edge)
-    };
-    // Body, palm rest, two main buttons, thumb panel.
-    painter.add(Shape::closed_line(
-        [(55.0, 40.0), (190.0, 40.0), (215.0, 120.0), (210.0, 220.0), (160.0, 290.0), (85.0, 290.0), (25.0, 220.0), (22.0, 120.0)]
-            .iter().map(|&(x, y)| p(x, y)).collect(),
-        edge,
-    ));
-    painter.add(poly(&[(35.0, 210.0), (205.0, 210.0), (160.0, 288.0), (85.0, 288.0)], shell));
-    painter.add(poly(&[(55.0, 45.0), (112.0, 45.0), (112.0, 165.0), (100.0, 200.0), (40.0, 200.0), (30.0, 120.0)], shell));
-    painter.add(poly(&[(140.0, 45.0), (190.0, 45.0), (210.0, 120.0), (200.0, 200.0), (152.0, 200.0), (140.0, 165.0)], shell));
-    painter.add(poly(&[(10.0, 135.0), (28.0, 125.0), (34.0, 280.0), (14.0, 270.0)], Color32::from_rgb(60, 25, 25)));
-    // Wheel.
-    painter.rect(egui::Rect::from_min_max(p(116.0, 80.0), p(136.0, 125.0)), 8.0, red, edge, egui::StrokeKind::Middle);
-    for y in [90.0f32, 100.0, 110.0] {
-        painter.line_segment([p(119.0, y), p(133.0, y)], Stroke::new(1.0_f32, Color32::BLACK));
-    }
-    painter.circle_filled(pos2(rect.center().x, rect.min.y + 250.0), 10.0, red);
-
-    for (n, x, y) in [(1, 65.0f32, 125.0f32), (2, 165.0, 70.0), (3, 126.0, 145.0), (4, 180.0, 110.0), (5, 82.0, 180.0),
-                      (6, 168.0, 185.0), (7, 40.0, 150.0), (8, 22.0, 195.0), (9, 24.0, 250.0), (10, 200.0, 145.0)] {
-        painter.circle(p(x, y), 10.0, Color32::WHITE, Stroke::new(1.0_f32, Color32::BLACK));
-        painter.text(p(x, y), egui::Align2::CENTER_CENTER, n.to_string(), egui::FontId::proportional(12.0), Color32::BLACK);
+    let svg = egui::Image::from_bytes("bytes://mouse.svg", include_bytes!("../../assets/mouse.svg").as_slice());
+    let rect = ui.add(svg.fit_to_exact_size(egui::vec2(280.0, 415.0))).rect;
+    let scale = rect.width() / 560.0;
+    let numbers = [(160.0, 265.0), (400.0, 240.0), (280.0, 350.0), (455.0, 330.0), (200.0, 415.0),
+                   (360.0, 415.0), (75.0, 400.0), (75.0, 565.0), (85.0, 680.0), (510.0, 420.0)];
+    for (n, (x, y)) in numbers.into_iter().enumerate() {
+        let at = rect.min + egui::vec2(x, y) * scale;
+        ui.painter().circle(at, 11.0, egui::Color32::WHITE, egui::Stroke::new(1.5_f32, egui::Color32::BLACK));
+        ui.painter().text(at, egui::Align2::CENTER_CENTER, (n + 1).to_string(), egui::FontId::proportional(13.0), egui::Color32::BLACK);
     }
 }
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 540.0]).with_title("Mouse buttons"),
+        viewport: egui::ViewportBuilder::default().with_inner_size([820.0, 560.0]).with_title("Mouse buttons"),
         ..Default::default()
     };
-    eframe::run_native("Mouse buttons", options, Box::new(|_| Ok(Box::new(App::new()))))
+    eframe::run_native("Mouse buttons", options, Box::new(|cc| {
+        egui_extras::install_image_loaders(&cc.egui_ctx);
+        Ok(Box::new(App::new()))
+    }))
 }

@@ -6,4 +6,5 @@ description = "Configure the LUOM G10 / Combaterwing mouse (USB 04d9:a09f) on Li
 
 [dependencies]
 eframe = { version = "0.33", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+egui_extras = { version = "0.33", features = ["svg"] }
 libc = "0.2"
