@@ -1,0 +1,8 @@
+[package]
+name = "luomctl"
+version = "0.1.0"
+edition = "2021"
+description = "Configure the LUOM G10 / Combaterwing mouse (USB 04d9:a09f) on Linux"
+
+[dependencies]
+libc = "0.2"
