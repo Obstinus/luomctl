@@ -23,13 +23,7 @@ cargo install --path . --root ~/.local
 install -Dm644 luom-mouse.desktop ~/.local/share/applications/
 ```
 
-The window shows a picture of the mouse with the button numbers.
-The picture comes from the official software, so it is not in this repository.
-To make it, unpack the official installer and run:
-
-```
-./install-picture.sh "<path to the Combaterwing GM folder>"
-```
+The window draws the mouse with the button numbers. The numbers are the same as in the official software.
 
 ## Command line
 

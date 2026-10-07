@@ -66,12 +66,11 @@ struct App {
     edit: ButtonTable,
     message: String,
     ok: bool,
-    picture: Option<egui::load::Bytes>,
 }
 
 impl App {
     fn new() -> Self {
-        let mut app = App { mode: Mode::A, saved: None, edit: [[0; 4]; 16], message: String::new(), ok: true, picture: picture() };
+        let mut app = App { mode: Mode::A, saved: None, edit: [[0; 4]; 16], message: String::new(), ok: true };
         app.load();
         app
     }
@@ -118,13 +117,11 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if let Some(bytes) = &self.picture {
-            egui::SidePanel::left("picture").resizable(false).show(ctx, |ui| {
-                ui.add_space(40.0);
-                ui.add(egui::Image::from_bytes("bytes://mouse.png", bytes.clone()).fit_to_exact_size(egui::vec2(245.0, 300.0)));
-                ui.label("The numbers on the picture\nare the button numbers.");
-            });
-        }
+        egui::SidePanel::left("picture").resizable(false).show(ctx, |ui| {
+            ui.add_space(30.0);
+            draw_mouse(ui);
+            ui.label("The numbers on the picture\nare the button numbers.");
+        });
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Mouse buttons");
             ui.add_space(6.0);
@@ -179,10 +176,41 @@ impl eframe::App for App {
     }
 }
 
-/// Picture of the mouse, cut from the official software (not part of this repository).
-fn picture() -> Option<egui::load::Bytes> {
-    let p = std::path::PathBuf::from(std::env::var_os("HOME")?).join(".local/share/luom-mouse/mouse.png");
-    std::fs::read(p).ok().map(Into::into)
+/// Draw the mouse from above, with the button numbers at the same places as the official software.
+fn draw_mouse(ui: &mut egui::Ui) {
+    use egui::{pos2, Color32, Shape, Stroke};
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(245.0, 300.0), egui::Sense::hover());
+    let p = |x: f32, y: f32| rect.min + egui::vec2(x, y);
+    let painter = ui.painter_at(rect);
+    let shell = Color32::from_rgb(35, 35, 40);
+    let edge = Stroke::new(2.0_f32, Color32::from_rgb(200, 160, 70));
+    let red = Color32::from_rgb(190, 30, 35);
+
+    let poly = |pts: &[(f32, f32)], fill: Color32| {
+        Shape::convex_polygon(pts.iter().map(|&(x, y)| p(x, y)).collect(), fill, edge)
+    };
+    // Body, palm rest, two main buttons, thumb panel.
+    painter.add(Shape::closed_line(
+        [(55.0, 40.0), (190.0, 40.0), (215.0, 120.0), (210.0, 220.0), (160.0, 290.0), (85.0, 290.0), (25.0, 220.0), (22.0, 120.0)]
+            .iter().map(|&(x, y)| p(x, y)).collect(),
+        edge,
+    ));
+    painter.add(poly(&[(35.0, 210.0), (205.0, 210.0), (160.0, 288.0), (85.0, 288.0)], shell));
+    painter.add(poly(&[(55.0, 45.0), (112.0, 45.0), (112.0, 165.0), (100.0, 200.0), (40.0, 200.0), (30.0, 120.0)], shell));
+    painter.add(poly(&[(140.0, 45.0), (190.0, 45.0), (210.0, 120.0), (200.0, 200.0), (152.0, 200.0), (140.0, 165.0)], shell));
+    painter.add(poly(&[(10.0, 135.0), (28.0, 125.0), (34.0, 280.0), (14.0, 270.0)], Color32::from_rgb(60, 25, 25)));
+    // Wheel.
+    painter.rect(egui::Rect::from_min_max(p(116.0, 80.0), p(136.0, 125.0)), 8.0, red, edge, egui::StrokeKind::Middle);
+    for y in [90.0f32, 100.0, 110.0] {
+        painter.line_segment([p(119.0, y), p(133.0, y)], Stroke::new(1.0_f32, Color32::BLACK));
+    }
+    painter.circle_filled(pos2(rect.center().x, rect.min.y + 250.0), 10.0, red);
+
+    for (n, x, y) in [(1, 65.0f32, 125.0f32), (2, 165.0, 70.0), (3, 126.0, 145.0), (4, 180.0, 110.0), (5, 82.0, 180.0),
+                      (6, 168.0, 185.0), (7, 40.0, 150.0), (8, 22.0, 195.0), (9, 24.0, 250.0), (10, 200.0, 145.0)] {
+        painter.circle(p(x, y), 10.0, Color32::WHITE, Stroke::new(1.0_f32, Color32::BLACK));
+        painter.text(p(x, y), egui::Align2::CENTER_CENTER, n.to_string(), egui::FontId::proportional(12.0), Color32::BLACK);
+    }
 }
 
 fn main() -> eframe::Result {
@@ -190,8 +218,5 @@ fn main() -> eframe::Result {
         viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 540.0]).with_title("Mouse buttons"),
         ..Default::default()
     };
-    eframe::run_native("Mouse buttons", options, Box::new(|cc| {
-            egui_extras::install_image_loaders(&cc.egui_ctx);
-            Ok(Box::new(App::new()))
-        }))
+    eframe::run_native("Mouse buttons", options, Box::new(|_| Ok(Box::new(App::new()))))
 }
