@@ -66,11 +66,12 @@ struct App {
     edit: ButtonTable,
     message: String,
     ok: bool,
+    picture: Option<egui::load::Bytes>,
 }
 
 impl App {
     fn new() -> Self {
-        let mut app = App { mode: Mode::A, saved: None, edit: [[0; 4]; 16], message: String::new(), ok: true };
+        let mut app = App { mode: Mode::A, saved: None, edit: [[0; 4]; 16], message: String::new(), ok: true, picture: picture() };
         app.load();
         app
     }
@@ -117,6 +118,13 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if let Some(bytes) = &self.picture {
+            egui::SidePanel::left("picture").resizable(false).show(ctx, |ui| {
+                ui.add_space(40.0);
+                ui.add(egui::Image::from_bytes("bytes://mouse.png", bytes.clone()).fit_to_exact_size(egui::vec2(245.0, 300.0)));
+                ui.label("The numbers on the picture\nare the button numbers.");
+            });
+        }
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Mouse buttons");
             ui.add_space(6.0);
@@ -171,10 +179,19 @@ impl eframe::App for App {
     }
 }
 
+/// Picture of the mouse, cut from the official software (not part of this repository).
+fn picture() -> Option<egui::load::Bytes> {
+    let p = std::path::PathBuf::from(std::env::var_os("HOME")?).join(".local/share/luom-mouse/mouse.png");
+    std::fs::read(p).ok().map(Into::into)
+}
+
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([520.0, 520.0]).with_title("Mouse buttons"),
+        viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 540.0]).with_title("Mouse buttons"),
         ..Default::default()
     };
-    eframe::run_native("Mouse buttons", options, Box::new(|_| Ok(Box::new(App::new()))))
+    eframe::run_native("Mouse buttons", options, Box::new(|cc| {
+            egui_extras::install_image_loaders(&cc.egui_ctx);
+            Ok(Box::new(App::new()))
+        }))
 }
