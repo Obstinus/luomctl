@@ -58,6 +58,7 @@ fn friendly(e: std::io::Error) -> String {
 enum Page {
     Buttons,
     Lights,
+    Rate,
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -73,6 +74,8 @@ struct App {
     edit: ButtonTable,
     saved_light: Option<LightState>,
     light_pick: Option<&'static LightPreset>,
+    saved_rate: Option<ReportRate>,
+    rate_pick: Option<ReportRate>,
     message: String,
     ok: bool,
 }
@@ -86,6 +89,8 @@ impl App {
             edit: [[0; 4]; 16],
             saved_light: None,
             light_pick: None,
+            saved_rate: None,
+            rate_pick: None,
             message: String::new(),
             ok: true,
         };
@@ -174,10 +179,53 @@ impl App {
         }
     }
 
+    fn load_rate(&mut self) {
+        match Mouse::open().and_then(|m| m.read_rate()) {
+            Ok(rate) => {
+                self.saved_rate = Some(rate);
+                self.rate_pick = Some(rate);
+                self.message = "Mouse found. Choose a response rate, then click “Save to mouse”.".into();
+                self.ok = true;
+            }
+            Err(e) => {
+                self.saved_rate = None;
+                self.message = friendly(e);
+                self.ok = false;
+            }
+        }
+    }
+
+    fn save_rate(&mut self) {
+        let Some(rate) = self.rate_pick else { return };
+        let result = Mouse::open().and_then(|m| {
+            m.write_rate(rate)?;
+            m.read_rate()
+        });
+        match result {
+            Ok(got) if got == rate => {
+                self.saved_rate = Some(got);
+                self.message = format!("Saved. The response rate is now {} Hz.", rate.hz());
+                self.ok = true;
+            }
+            Ok(got) => {
+                self.saved_rate = Some(got);
+                self.message = "The mouse did not keep the rate. Click “Save to mouse” again.".into();
+                self.ok = false;
+            }
+            Err(e) => {
+                self.message = friendly(e);
+                self.ok = false;
+            }
+        }
+    }
+
     /// Reads a page the first time it opens. The button page reads at start.
     fn open_page(&mut self) {
-        if self.page == Page::Lights && self.saved_light.is_none() {
-            self.load_light();
+        match self.page {
+            Page::Buttons => {}
+            Page::Lights if self.saved_light.is_none() => self.load_light(),
+            Page::Rate if self.saved_rate.is_none() => self.load_rate(),
+            _ => {}
         }
     }
 
@@ -259,6 +307,31 @@ impl App {
             }
         }
     }
+
+    fn rate_page(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Response rate");
+        ui.add_space(6.0);
+
+        match self.saved_rate {
+            None => {
+                if ui.button("Try again").clicked() {
+                    self.load_rate();
+                }
+            }
+            Some(saved) => {
+                ui.label("Higher is smoother. It uses a little more power.");
+                ui.add_space(8.0);
+                for rate in ReportRate::ALL {
+                    ui.radio_value(&mut self.rate_pick, Some(rate), format!("{} Hz", rate.hz()));
+                }
+                ui.add_space(10.0);
+                let changed = self.rate_pick != Some(saved);
+                if ui.add_enabled(changed, egui::Button::new("Save to mouse")).clicked() {
+                    self.save_rate();
+                }
+            }
+        }
+    }
 }
 
 impl eframe::App for App {
@@ -268,6 +341,7 @@ impl eframe::App for App {
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.page, Page::Buttons, "Buttons");
                 ui.selectable_value(&mut self.page, Page::Lights, "Lights");
+                ui.selectable_value(&mut self.page, Page::Rate, "Response rate");
             });
             if self.page != before {
                 self.open_page();
@@ -287,6 +361,7 @@ impl eframe::App for App {
         egui::CentralPanel::default().show(ctx, |ui| match self.page {
             Page::Buttons => self.buttons_page(ui),
             Page::Lights => self.lights_page(ui),
+            Page::Rate => self.rate_page(ui),
         });
     }
 }
