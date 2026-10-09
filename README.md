@@ -89,7 +89,7 @@ Light presets (mode `0d` holds kind, param, option. Slot 0 is `07 00`):
 
 | CLI name | Preset | Kind | Option | Slot 0 |
 |---|---|---|---|---|
-| `breathing` | Breathing, colour cycle | `02` | `02` | `01`, other bytes kept |
+| `breathing` | Breathing, colour cycle | `02` | `02` | `01 fa 02` |
 | `flashing` | Breathing, flashing | `02` | `03` | `02 02 03` |
 | `steady` | Steady colour | `03` | kept | `03 05 05` |
 

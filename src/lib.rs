@@ -126,7 +126,7 @@ pub struct LightPreset {
 }
 
 pub const LIGHTS: &[LightPreset] = &[
-    LightPreset { name: "Breathing, colour cycle", cli: "breathing", kind: 2, fresh_param: 5, option: Some(2), slot0: [Some(1), None, None] },
+    LightPreset { name: "Breathing, colour cycle", cli: "breathing", kind: 2, fresh_param: 5, option: Some(2), slot0: [Some(1), Some(0xfa), Some(0x02)] },
     LightPreset { name: "Breathing, flashing", cli: "flashing", kind: 2, fresh_param: 5, option: Some(3), slot0: [Some(2), Some(2), Some(3)] },
     LightPreset { name: "Steady colour", cli: "steady", kind: 3, fresh_param: 1, option: None, slot0: [Some(3), Some(5), Some(5)] },
 ];
@@ -218,6 +218,12 @@ mod tests {
             got,
             LightState { mode: [0x02, 0x05, 0x03], slot0: [0x02, 0x02, 0x03], slot1: DEFAULT.slot1 }
         );
+    }
+
+    #[test]
+    fn breathing_after_flashing_restores_the_default() {
+        let flashing = preset("flashing").apply(&DEFAULT);
+        assert_eq!(preset("breathing").apply(&flashing), DEFAULT);
     }
 
     #[test]
