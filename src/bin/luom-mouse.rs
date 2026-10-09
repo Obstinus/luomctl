@@ -118,6 +118,12 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
+            ui.add_space(4.0);
+            let color = if self.ok { egui::Color32::from_rgb(40, 150, 70) } else { egui::Color32::from_rgb(200, 60, 50) };
+            ui.colored_label(color, &self.message);
+            ui.add_space(4.0);
+        });
         egui::SidePanel::left("picture").resizable(false).show(ctx, |ui| {
             ui.add_space(30.0);
             draw_mouse(ui);
@@ -175,10 +181,6 @@ impl eframe::App for App {
             } else if ui.button("Try again").clicked() {
                 self.load();
             }
-
-            ui.add_space(10.0);
-            let color = if self.ok { egui::Color32::from_rgb(40, 150, 70) } else { egui::Color32::from_rgb(200, 60, 50) };
-            ui.colored_label(color, &self.message);
         });
     }
 }
@@ -199,7 +201,10 @@ fn draw_mouse(ui: &mut egui::Ui) {
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([820.0, 560.0]).with_title("Mouse buttons"),
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([860.0, 600.0])
+            .with_min_inner_size([720.0, 520.0])
+            .with_title("Mouse buttons"),
         ..Default::default()
     };
     eframe::run_native("Mouse buttons", options, Box::new(|cc| {
