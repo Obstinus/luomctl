@@ -1,4 +1,4 @@
-//! Simple window to change the mouse buttons.
+//! Simple window to change the mouse buttons and lights.
 
 use eframe::egui;
 use luomctl::device::{ButtonTable, Mouse};
@@ -55,22 +55,40 @@ fn friendly(e: std::io::Error) -> String {
 }
 
 #[derive(PartialEq, Clone, Copy)]
+enum Page {
+    Buttons,
+    Lights,
+}
+
+#[derive(PartialEq, Clone, Copy)]
 enum Mode {
     A = 1,
     B = 3,
 }
 
 struct App {
+    page: Page,
     mode: Mode,
     saved: Option<ButtonTable>,
     edit: ButtonTable,
+    saved_light: Option<LightState>,
+    light_pick: Option<&'static LightPreset>,
     message: String,
     ok: bool,
 }
 
 impl App {
     fn new() -> Self {
-        let mut app = App { mode: Mode::A, saved: None, edit: [[0; 4]; 16], message: String::new(), ok: true };
+        let mut app = App {
+            page: Page::Buttons,
+            mode: Mode::A,
+            saved: None,
+            edit: [[0; 4]; 16],
+            saved_light: None,
+            light_pick: None,
+            message: String::new(),
+            ok: true,
+        };
         app.load();
         app
     }
@@ -114,10 +132,147 @@ impl App {
             }
         }
     }
+
+    fn load_light(&mut self) {
+        match Mouse::open().and_then(|m| m.read_light()) {
+            Ok(state) => {
+                self.saved_light = Some(state);
+                self.light_pick = LightPreset::matching(&state);
+                self.message = "Mouse found. Choose a light, then click “Save to mouse”.".into();
+                self.ok = true;
+            }
+            Err(e) => {
+                self.saved_light = None;
+                self.message = friendly(e);
+                self.ok = false;
+            }
+        }
+    }
+
+    fn save_light(&mut self) {
+        let Some(preset) = self.light_pick else { return };
+        let result = Mouse::open().and_then(|m| {
+            let want = preset.apply(&m.read_light()?);
+            m.write_light(&want)?;
+            Ok((want, m.read_light()?))
+        });
+        match result {
+            Ok((want, got)) if got == want => {
+                self.saved_light = Some(got);
+                self.message = format!("Saved. The light now shows: {}.", preset.name);
+                self.ok = true;
+            }
+            Ok((_, got)) => {
+                self.saved_light = Some(got);
+                self.message = "The mouse did not keep the light. Click “Save to mouse” again.".into();
+                self.ok = false;
+            }
+            Err(e) => {
+                self.message = friendly(e);
+                self.ok = false;
+            }
+        }
+    }
+
+    /// Reads a page the first time it opens. The button page reads at start.
+    fn open_page(&mut self) {
+        if self.page == Page::Lights && self.saved_light.is_none() {
+            self.load_light();
+        }
+    }
+
+    fn buttons_page(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Mouse buttons");
+        ui.add_space(6.0);
+
+        let changed = self.saved.is_some_and(|saved| saved != self.edit);
+        ui.horizontal(|ui| {
+            ui.label("Button set:");
+            let before = self.mode;
+            ui.add_enabled_ui(!changed, |ui| {
+                ui.selectable_value(&mut self.mode, Mode::A, "Set A");
+                ui.selectable_value(&mut self.mode, Mode::B, "Set B");
+            });
+            if self.mode != before {
+                self.load();
+            }
+        })
+        .response
+        .on_hover_text(if changed {
+            "Save or undo your changes before you change the set."
+        } else {
+            "The mouse can keep two sets. A button on the mouse changes between them."
+        });
+        ui.add_space(8.0);
+
+        if let Some(saved) = self.saved {
+            egui::Grid::new("buttons").num_columns(2).spacing([16.0, 8.0]).show(ui, |ui| {
+                for (i, name) in BUTTONS.iter().enumerate() {
+                    ui.label(*name);
+                    let slot = &mut self.edit[SLOT[i]];
+                    egui::ComboBox::from_id_salt(i)
+                        .width(240.0)
+                        .selected_text(label(*slot))
+                        .show_ui(ui, |ui| {
+                            for (text, value) in CHOICES {
+                                ui.selectable_value(slot, *value, *text);
+                            }
+                        });
+                    ui.end_row();
+                }
+            });
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                if ui.add_enabled(changed, egui::Button::new("Save to mouse")).clicked() {
+                    self.save();
+                }
+                if ui.add_enabled(changed, egui::Button::new("Undo changes")).clicked() {
+                    self.edit = saved;
+                }
+            });
+        } else if ui.button("Try again").clicked() {
+            self.load();
+        }
+    }
+
+    fn lights_page(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Lights");
+        ui.add_space(6.0);
+
+        match self.saved_light {
+            None => {
+                if ui.button("Try again").clicked() {
+                    self.load_light();
+                }
+            }
+            Some(state) => {
+                ui.label(format!("The mouse shows: {}", light_label(&state)));
+                ui.add_space(8.0);
+                for preset in LIGHTS {
+                    ui.radio_value(&mut self.light_pick, Some(preset), preset.name);
+                }
+                ui.add_space(10.0);
+                let changed = self.light_pick != LightPreset::matching(&state);
+                if ui.add_enabled(changed, egui::Button::new("Save to mouse")).clicked() {
+                    self.save_light();
+                }
+            }
+        }
+    }
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::TopBottomPanel::top("pages").show(ctx, |ui| {
+            let before = self.page;
+            ui.horizontal(|ui| {
+                ui.selectable_value(&mut self.page, Page::Buttons, "Buttons");
+                ui.selectable_value(&mut self.page, Page::Lights, "Lights");
+            });
+            if self.page != before {
+                self.open_page();
+            }
+        });
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
             ui.add_space(4.0);
             let color = if self.ok { egui::Color32::from_rgb(40, 150, 70) } else { egui::Color32::from_rgb(200, 60, 50) };
@@ -129,58 +284,9 @@ impl eframe::App for App {
             draw_mouse(ui);
             ui.label("The numbers on the picture\nare the button numbers.");
         });
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Mouse buttons");
-            ui.add_space(6.0);
-
-            let changed = self.saved.is_some_and(|saved| saved != self.edit);
-            ui.horizontal(|ui| {
-                ui.label("Button set:");
-                let before = self.mode;
-                ui.add_enabled_ui(!changed, |ui| {
-                    ui.selectable_value(&mut self.mode, Mode::A, "Set A");
-                    ui.selectable_value(&mut self.mode, Mode::B, "Set B");
-                });
-                if self.mode != before {
-                    self.load();
-                }
-            })
-            .response
-            .on_hover_text(if changed {
-                "Save or undo your changes before you change the set."
-            } else {
-                "The mouse can keep two sets. A button on the mouse changes between them."
-            });
-            ui.add_space(8.0);
-
-            if let Some(saved) = self.saved {
-                egui::Grid::new("buttons").num_columns(2).spacing([16.0, 8.0]).show(ui, |ui| {
-                    for (i, name) in BUTTONS.iter().enumerate() {
-                        ui.label(*name);
-                        let slot = &mut self.edit[SLOT[i]];
-                        egui::ComboBox::from_id_salt(i)
-                            .width(240.0)
-                            .selected_text(label(*slot))
-                            .show_ui(ui, |ui| {
-                                for (text, value) in CHOICES {
-                                    ui.selectable_value(slot, *value, *text);
-                                }
-                            });
-                        ui.end_row();
-                    }
-                });
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    if ui.add_enabled(changed, egui::Button::new("Save to mouse")).clicked() {
-                        self.save();
-                    }
-                    if ui.add_enabled(changed, egui::Button::new("Undo changes")).clicked() {
-                        self.edit = saved;
-                    }
-                });
-            } else if ui.button("Try again").clicked() {
-                self.load();
-            }
+        egui::CentralPanel::default().show(ctx, |ui| match self.page {
+            Page::Buttons => self.buttons_page(ui),
+            Page::Lights => self.lights_page(ui),
         });
     }
 }
