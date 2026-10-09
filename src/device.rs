@@ -1,6 +1,7 @@
 //! hidraw access to the vendor interface (interface 2) of the mouse.
 
 use crate::cipher::{decrypt, encrypt};
+use crate::{LightState, ReportRate};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::os::fd::AsRawFd;
@@ -128,4 +129,51 @@ impl Mouse {
         }
         Ok(())
     }
+
+    /// Reads a command reply. Byte 0 echoes the opcode.
+    fn read_reply(&self, op: &[u8]) -> io::Result<[u8; 8]> {
+        let reply = self.send(op)?;
+        if reply[0] != op[0] {
+            return Err(io::Error::other(format!("unexpected reply {reply:02x?}")));
+        }
+        Ok(reply)
+    }
+
+    /// Opcode 0x81: read the report rate code (reply byte 1).
+    pub fn read_rate(&self) -> io::Result<ReportRate> {
+        let code = self.read_reply(&[0x81])?[1];
+        ReportRate::from_byte(code).ok_or_else(|| io::Error::other(format!("unknown report rate code {code:02x}")))
+    }
+
+    /// Opcode 0x01: write the report rate code.
+    pub fn write_rate(&self, rate: ReportRate) -> io::Result<()> {
+        self.send(&[0x01, rate.to_byte()]).map(|_| ())
+    }
+
+    /// Opcodes 0x8d (mode) and 0x87 00 / 0x87 01 (slots): read the light registers.
+    pub fn read_light(&self) -> io::Result<LightState> {
+        Ok(LightState {
+            mode: three(self.read_reply(&[0x8d])?, 1),
+            slot0: three(self.read_reply(&[0x87, 0x00])?, 2),
+            slot1: three(self.read_reply(&[0x87, 0x01])?, 2),
+        })
+    }
+
+    /// Opcodes 0x07 00 and 0x07 01 (slots), then 0x0d (mode). The mode goes last, as in the official software.
+    pub fn write_light(&self, state: &LightState) -> io::Result<()> {
+        let pause = Duration::from_millis(2);
+        let [s0, s1, s2] = state.slot0;
+        self.send(&[0x07, 0x00, s0, s1, s2])?;
+        std::thread::sleep(pause);
+        let [s0, s1, s2] = state.slot1;
+        self.send(&[0x07, 0x01, s0, s1, s2])?;
+        std::thread::sleep(pause);
+        let [m0, m1, m2] = state.mode;
+        self.send(&[0x0d, m0, m1, m2]).map(|_| ())
+    }
+}
+
+/// Three value bytes of a light reply, starting at `start`.
+fn three(reply: [u8; 8], start: usize) -> [u8; 3] {
+    [reply[start], reply[start + 1], reply[start + 2]]
 }
