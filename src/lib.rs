@@ -104,6 +104,50 @@ impl ReportRate {
     }
 }
 
+/// The light registers as the device holds them. Slot 1 is never changed by a preset.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LightState {
+    /// Kind, param, option.
+    pub mode: [u8; 3],
+    pub slot0: [u8; 3],
+    pub slot1: [u8; 3],
+}
+
+/// A light effect the tool can set. `None` keeps the value the mouse holds.
+#[derive(Debug, PartialEq, Eq)]
+pub struct LightPreset {
+    pub name: &'static str,
+    pub cli: &'static str,
+    pub kind: u8,
+    /// Param after a kind change. A param stays while the kind stays.
+    pub fresh_param: u8,
+    pub option: Option<u8>,
+    pub slot0: [Option<u8>; 3],
+}
+
+pub const LIGHTS: &[LightPreset] = &[
+    LightPreset { name: "Breathing, colour cycle", cli: "breathing", kind: 2, fresh_param: 5, option: Some(2), slot0: [Some(1), None, None] },
+    LightPreset { name: "Breathing, flashing", cli: "flashing", kind: 2, fresh_param: 5, option: Some(3), slot0: [Some(2), Some(2), Some(3)] },
+    LightPreset { name: "Steady colour", cli: "steady", kind: 3, fresh_param: 1, option: None, slot0: [Some(3), Some(5), Some(5)] },
+];
+
+impl LightPreset {
+    /// The state the mouse must hold after this preset, given the state it holds now.
+    pub fn apply(&self, current: &LightState) -> LightState {
+        let param = if current.mode[0] == self.kind { current.mode[1] } else { self.fresh_param };
+        LightState {
+            mode: [self.kind, param, self.option.unwrap_or(current.mode[2])],
+            slot0: std::array::from_fn(|i| self.slot0[i].unwrap_or(current.slot0[i])),
+            slot1: current.slot1,
+        }
+    }
+
+    /// The preset the mouse shows. A preset shows when applying it changes nothing.
+    pub fn matching(state: &LightState) -> Option<&'static LightPreset> {
+        LIGHTS.iter().find(|p| p.apply(state) == *state)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,6 +174,58 @@ mod tests {
     fn report_rate_hz_values() {
         let hz: Vec<u16> = ReportRate::ALL.iter().map(|r| r.hz()).collect();
         assert_eq!(hz, [125, 250, 500, 1000]);
+    }
+
+    /// Light state of a mouse that was never touched: breathing, colour cycle.
+    const DEFAULT: LightState = LightState {
+        mode: [0x02, 0x05, 0x02],
+        slot0: [0x01, 0xfa, 0x02],
+        slot1: [0x3c, 0x1e, 0x00],
+    };
+
+    fn preset(cli: &str) -> &'static LightPreset {
+        LIGHTS.iter().find(|p| p.cli == cli).unwrap()
+    }
+
+    #[test]
+    fn device_default_shows_breathing_colour_cycle() {
+        assert_eq!(LightPreset::matching(&DEFAULT).map(|p| p.cli), Some("breathing"));
+    }
+
+    #[test]
+    fn breathing_colour_cycle_on_its_own_state_changes_nothing() {
+        assert_eq!(preset("breathing").apply(&DEFAULT), DEFAULT);
+    }
+
+    #[test]
+    fn steady_colour_sets_new_kind_fresh_param_and_slot0() {
+        let got = preset("steady").apply(&DEFAULT);
+        assert_eq!(
+            got,
+            LightState { mode: [0x03, 0x01, 0x02], slot0: [0x03, 0x05, 0x05], slot1: DEFAULT.slot1 }
+        );
+    }
+
+    #[test]
+    fn flashing_keeps_param_when_kind_stays() {
+        let got = preset("flashing").apply(&DEFAULT);
+        assert_eq!(
+            got,
+            LightState { mode: [0x02, 0x05, 0x03], slot0: [0x02, 0x02, 0x03], slot1: DEFAULT.slot1 }
+        );
+    }
+
+    #[test]
+    fn every_preset_is_recognised_after_it_is_applied() {
+        for p in LIGHTS {
+            assert_eq!(LightPreset::matching(&p.apply(&DEFAULT)), Some(p));
+        }
+    }
+
+    #[test]
+    fn unknown_state_matches_no_preset() {
+        let other = LightState { mode: [0x07, 0x00, 0x00], slot0: [0x00; 3], slot1: [0x00; 3] };
+        assert_eq!(LightPreset::matching(&other), None);
     }
 }
 
