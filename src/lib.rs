@@ -69,3 +69,67 @@ fn hexs(v: [u8; 4]) -> String {
     v.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// Report rate of the mouse. The device stores one code byte per rate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReportRate {
+    Hz125,
+    Hz250,
+    Hz500,
+    Hz1000,
+}
+
+impl ReportRate {
+    pub const ALL: [ReportRate; 4] = [Self::Hz125, Self::Hz250, Self::Hz500, Self::Hz1000];
+
+    pub fn hz(self) -> u16 {
+        match self {
+            Self::Hz125 => 125,
+            Self::Hz250 => 250,
+            Self::Hz500 => 500,
+            Self::Hz1000 => 1000,
+        }
+    }
+
+    pub fn to_byte(self) -> u8 {
+        match self {
+            Self::Hz125 => 0x08,
+            Self::Hz250 => 0x04,
+            Self::Hz500 => 0x02,
+            Self::Hz1000 => 0x01,
+        }
+    }
+
+    pub fn from_byte(b: u8) -> Option<Self> {
+        Self::ALL.into_iter().find(|r| r.to_byte() == b)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn report_rate_codes_match_the_device() {
+        assert_eq!(ReportRate::Hz1000.to_byte(), 0x01);
+        assert_eq!(ReportRate::Hz500.to_byte(), 0x02);
+        assert_eq!(ReportRate::Hz250.to_byte(), 0x04);
+        assert_eq!(ReportRate::Hz125.to_byte(), 0x08);
+    }
+
+    #[test]
+    fn report_rate_round_trips_and_rejects_unknown_codes() {
+        for rate in ReportRate::ALL {
+            assert_eq!(ReportRate::from_byte(rate.to_byte()), Some(rate));
+        }
+        for code in [0x00, 0x03, 0x10, 0xff] {
+            assert_eq!(ReportRate::from_byte(code), None);
+        }
+    }
+
+    #[test]
+    fn report_rate_hz_values() {
+        let hz: Vec<u16> = ReportRate::ALL.iter().map(|r| r.hz()).collect();
+        assert_eq!(hz, [125, 250, 500, 1000]);
+    }
+}
+
