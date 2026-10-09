@@ -148,6 +148,11 @@ impl LightPreset {
     }
 }
 
+/// Plain name of the light the mouse shows. States from other software have no preset.
+pub fn light_label(state: &LightState) -> &'static str {
+    LightPreset::matching(state).map_or("Other (set in other software)", |p| p.name)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,6 +231,12 @@ mod tests {
     fn unknown_state_matches_no_preset() {
         let other = LightState { mode: [0x07, 0x00, 0x00], slot0: [0x00; 3], slot1: [0x00; 3] };
         assert_eq!(LightPreset::matching(&other), None);
+        assert_eq!(light_label(&other), "Other (set in other software)");
+    }
+
+    #[test]
+    fn label_names_the_device_default() {
+        assert_eq!(light_label(&DEFAULT), "Breathing, colour cycle");
     }
 }
 
